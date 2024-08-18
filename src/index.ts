@@ -121,7 +121,7 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
   }
 
   const browser = await puppeteer.launch({
-    headless: false,
+    headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
     defaultViewport: {
       width: 1920,
@@ -143,7 +143,7 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
 
   const selectedDate = await selectDate(page, dateToBook);
 
-  await page.screenshot({path: `${SCREENSHOTS_DIR}/${id}/calendar_selected.png`});
+  await page.screenshot({path: `${SCREENSHOTS_DIR}/${id}_calendar_selected.png`});
 
   if (selectedDate == null) {
     if (dateToBook) {
@@ -162,7 +162,7 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
 
   await page.click(nextButtonSelector);
 
-  await page.screenshot({path: `${SCREENSHOTS_DIR}/${id}/available_times.png`});
+  await page.screenshot({path: `${SCREENSHOTS_DIR}/${id}_available_times.png`, });
 
 }
 
@@ -173,15 +173,20 @@ async function run() {
   rule.tz = 'Asia/Tokyo'; 
 
   const job = schedule.scheduleJob(rule, async () => {
+    const date = moment().format('YYYY-MM-DD');
+    const minutes = moment().format('mm');
+    const id = `${date}_${minutes}`;
+
     try {
-      const date = moment().format('YYYY-MM-DD');
-      const minutes = moment().format('mm');
-      await createBooking(`${date}_${minutes}`, "Tokyo", 3, null);
-      console.log("Date found");
+      console.log(`[${id}] Starting...`);
+      await createBooking(id, "Tokyo", 3, null);
+      console.log(`[${id}] Date found`);
     } catch (error) {
-      console.error(error);
+      console.log(`[${id}] ${error}`);
     }
   });
+
+
 }
 
 run();
