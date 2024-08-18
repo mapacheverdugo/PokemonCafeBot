@@ -4,11 +4,16 @@
   "description": "A bot to book for a spot for Pokemon Cafe",
   "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npx ts-node-dev --poll ./src/index.ts",
+    "build": "npx tsc",
+    "start": "npm run build && node dist/index.js"
   },
   "author": "jaehyune",
   "license": "ISC",
   "dependencies": {
+    "mocha": "10.7.0",
+    "moment-timezone": "^0.5.45",
+    "puppeteer": "^23.0.2",
     "selenium-webdriver": "^4.19.0"
   },
   "devDependencies": {
