@@ -9,10 +9,10 @@ const OPEN_TIME = `${OPEN_HOUR}:00`;
 
 async function selectMonth(page: Page, dateToBook: string) {
   const calendarPagerSelector = '#step2-form a.calendar-pager';
-  await page.waitForSelector(calendarPagerSelector);
+  await page.waitForSelector(calendarPagerSelector, {timeout: 60000});
 
   const currentMonthYearSelector = '#step2-form h3';
-  await page.waitForSelector(currentMonthYearSelector);
+  await page.waitForSelector(currentMonthYearSelector, {timeout: 60000});
   const currentMonthYearElement = await page.$(currentMonthYearSelector);
   const currentMonthYear = await page.evaluate((element) => element.textContent, currentMonthYearElement);
 
@@ -136,11 +136,11 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
   await page.goto(url + "reserve/step1");
 
   const selectNumGuestSelector = 'select[name=guest]';
-  await page.waitForSelector(selectNumGuestSelector);
+  await page.waitForSelector(selectNumGuestSelector, {timeout: 60000});
   await page.select(selectNumGuestSelector, numOfGuests.toString());
 
   const calendarSelector = 'input[name=date]';
-  await page.waitForSelector(calendarSelector);
+  await page.waitForSelector(calendarSelector, {timeout: 60000});
 
   const selectedDate = await selectDate(page, dateToBook);
 
@@ -159,7 +159,7 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
   }
 
   const nextButtonSelector = '#submit_button';
-  await page.waitForSelector(nextButtonSelector);
+  await page.waitForSelector(nextButtonSelector, {timeout: 60000});
 
   await page.click(nextButtonSelector);
 
@@ -168,14 +168,35 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
 }
 
 async function run() {
-  const rule = new RecurrenceRule();
-  rule.hour = OPEN_HOUR;
-  rule.minute = new Range(0, 15);
-  rule.tz = 'Asia/Tokyo'; 
+  const rule1 = new RecurrenceRule();
+  rule1.hour = OPEN_HOUR;
+  rule1.minute = new Range(0, 15);
+  rule1.tz = 'Asia/Tokyo'; 
 
-  console.log(`Scheduling jobs for ${JSON.stringify(rule)}`);
+  console.log(`Scheduling jobs for ${JSON.stringify(rule1)}`);
 
-  const job = schedule.scheduleJob(rule, async () => {
+  const job1 = schedule.scheduleJob(rule1, async () => {
+    const date = moment().format('YYYY-MM-DD');
+    const minutes = moment().format('mm');
+    const id = `${date}_${minutes}`;
+
+    try {
+      console.log(`[${id}] Starting...`);
+      await createBooking(id, "Tokyo", 3, null);
+      console.log(`[${id}] Date found`);
+    } catch (error) {
+      console.log(`[${id}] ${error}`);
+    }
+  });
+
+  const rule2 = new RecurrenceRule();
+  rule2.hour = OPEN_HOUR - 1;
+  rule2.minute = new Range(55, 59);
+  rule2.tz = 'Asia/Tokyo'; 
+
+  console.log(`Scheduling jobs for ${JSON.stringify(rule2)}`);
+
+  const job2 = schedule.scheduleJob(rule2, async () => {
     const date = moment().format('YYYY-MM-DD');
     const minutes = moment().format('mm');
     const id = `${date}_${minutes}`;
