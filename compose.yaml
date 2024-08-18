@@ -4,8 +4,6 @@ services:
     build: .
     container_name: pokemon-cafe-bot-1
     working_dir: /home/app
-    ports:
-      - 4000:4000
     volumes:
       - ".:/home/app"
       - "/home/app/node_modules"

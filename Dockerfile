@@ -42,8 +42,6 @@ RUN npx tsc
 RUN chown -R pptruser:pptruser /home/pptruser/dist \
     && chown -R pptruser:pptruser /home/pptruser
 
-EXPOSE 3000
-
 USER pptruser
 
 CMD [ "node", "dist/index.js" ]
