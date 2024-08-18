@@ -240,5 +240,6 @@ $RECYCLE.BIN/
 .cache/
 .local/
 .npm/
+.pki/
 
 screenshots/

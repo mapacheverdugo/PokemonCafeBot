@@ -27,21 +27,10 @@ WORKDIR /home/pptruser
 
 RUN npm install puppeteer
 
-# Add user so we don't need --no-sandbox.
-RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
-    && mkdir -p /home/pptruser/Downloads \
-    && mkdir -p /home/pptruser/screenshots \
-    && chown -R pptruser:pptruser /home/pptruser
-
 COPY . /home/pptruser
 
 RUN npm install
 
 RUN npx tsc
-
-RUN chown -R pptruser:pptruser /home/pptruser/dist \
-    && chown -R pptruser:pptruser /home/pptruser
-
-USER pptruser
 
 CMD [ "node", "dist/index.js" ]

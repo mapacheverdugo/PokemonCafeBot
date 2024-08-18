@@ -2,9 +2,7 @@ version: '3'
 services:
   app:
     build: .
-    container_name: pokemon-cafe-bot-1
-    working_dir: /home/app
+    container_name: pokemon-cafe-bot
     volumes:
-      - ".:/home/app"
-      - "/home/app/node_modules"
-    command: "npm start"
+      - ./data:/home/pptruser/screenshots # Montaje de volúmenes para persistir datos si es necesario
+    restart: unless-stopped

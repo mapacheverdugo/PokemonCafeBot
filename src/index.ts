@@ -127,6 +127,7 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
       width: 1920,
       height: 1080,
     },
+    timeout: 60000,
   });
 
   const page = await browser.newPage();
@@ -168,9 +169,11 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
 
 async function run() {
   const rule = new RecurrenceRule();
-  rule.hour = 11;
+  rule.hour = 12;
   rule.minute = new Range(0, 59);
   rule.tz = 'Asia/Tokyo'; 
+
+  console.log(`Scheduling jobs for ${JSON.stringify(rule)}`);
 
   const job = schedule.scheduleJob(rule, async () => {
     const date = moment().format('YYYY-MM-DD');
