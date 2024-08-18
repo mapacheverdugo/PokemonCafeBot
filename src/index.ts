@@ -168,7 +168,7 @@ async function createBooking(id: string, city: string, numOfGuests: number, date
 
 async function run() {
   const rule = new RecurrenceRule();
-  rule.hour = 10;
+  rule.hour = 11;
   rule.minute = new Range(0, 59);
   rule.tz = 'Asia/Tokyo'; 
 
