@@ -13,6 +13,7 @@
   "dependencies": {
     "mocha": "10.7.0",
     "moment-timezone": "^0.5.45",
+    "node-schedule": "^2.1.1",
     "puppeteer": "^23.0.2",
     "selenium-webdriver": "^4.19.0"
   },

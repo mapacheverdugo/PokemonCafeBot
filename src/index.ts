@@ -1,8 +1,11 @@
 import moment from "moment-timezone";
+import schedule, { Range, RecurrenceRule } from "node-schedule";
 import puppeteer, { Page } from "puppeteer";
 
+const SCREENSHOTS_DIR = "screenshots";
 const DAYS_BEFORE = 30;
-const OPEN_TIME = "18:00";
+const OPEN_HOUR = 18;
+const OPEN_TIME = `${OPEN_HOUR}:00`;
 
 async function selectMonth(page: Page, dateToBook: string) {
   const calendarPagerSelector = '#step2-form a.calendar-pager';
@@ -42,7 +45,6 @@ async function selectDate(page: Page, dateToBook: string | undefined) {
   if (!dateToBook) {
     const rawDate =  moment().tz('Asia/Tokyo').add(DAYS_BEFORE - 1, 'days');
     let dateOpened = rawDate.format('YYYY-MM-DD');
-    console.log(rawDate);
 
     if (rawDate.hours() >= parseInt(OPEN_TIME.split(':')[0])) {
       dateOpened = rawDate.add(1, 'days').format('YYYY-MM-DD');
@@ -59,7 +61,7 @@ async function selectDate(page: Page, dateToBook: string | undefined) {
     dayToBook = parseInt(dateParts[2]);
   }
   
-  const dayToBookData = await page.evaluate((dayToBook) => {
+  const selectedDate = await page.evaluate((dayToBook)  =>  {
     try {
       const calendarDaySelector = '#step2-form li';
     const calendarDayElements  = Array.from(document.querySelectorAll(calendarDaySelector));
@@ -80,6 +82,8 @@ async function selectDate(page: Page, dateToBook: string | undefined) {
       return null;
     }
 
+    (dayToBookLiElement as HTMLElement).click();
+
     const number = (dayToBookLiElement.childNodes[0].childNodes[0] as Text).data;
     const statusJapanese = dayToBookLiElement.childNodes[0].childNodes[1].textContent;
     const status = dayToBookLiElement.childNodes[0].childNodes[2].textContent.replace('(', '').replace(')', '');
@@ -97,10 +101,10 @@ async function selectDate(page: Page, dateToBook: string | undefined) {
     }
   }, dayToBook);
 
-  return dayToBookData;
+  return selectedDate;
 }
 
-async function createBooking(city: string, numOfGuests: number, dateToBook: string | undefined) {
+async function createBooking(id: string, city: string, numOfGuests: number, dateToBook: string | undefined) {
 
   let url: string;
 
@@ -117,8 +121,12 @@ async function createBooking(city: string, numOfGuests: number, dateToBook: stri
   }
 
   const browser = await puppeteer.launch({
-    headless: true,
+    headless: false,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    defaultViewport: {
+      width: 1920,
+      height: 1080,
+    },
   });
 
   const page = await browser.newPage();
@@ -130,20 +138,14 @@ async function createBooking(city: string, numOfGuests: number, dateToBook: stri
   await page.waitForSelector(selectNumGuestSelector);
   await page.select(selectNumGuestSelector, numOfGuests.toString());
 
-  console.log("Waiting for calendar...");
-
   const calendarSelector = 'input[name=date]';
   await page.waitForSelector(calendarSelector);
 
-  await page.screenshot({path: 'calendar_screenshot.png'});
+  const selectedDate = await selectDate(page, dateToBook);
 
-  console.log("Selecting date...");
+  await page.screenshot({path: `${SCREENSHOTS_DIR}/${id}/calendar_selected.png`});
 
-  const dateToBookData = await selectDate(page, dateToBook);
-
-  console.log("Date selected!");
-
-   if (dateToBookData == null) {
+  if (selectedDate == null) {
     if (dateToBook) {
       throw new Error("Date not found");
     } else {
@@ -151,21 +153,35 @@ async function createBooking(city: string, numOfGuests: number, dateToBook: stri
     }
   }
 
-  if (!dateToBookData.available) {
+  if (!selectedDate.available) {
     throw new Error("Date not available");
   }
 
-/*   try {
-    const currentMonthYear = await page.evaluate((element) => element.click(), dateToBookData.element);
-  } catch (error) {
-    console.error(error);
-  } */
+  const nextButtonSelector = '#submit_button';
+  await page.waitForSelector(nextButtonSelector);
+
+  await page.click(nextButtonSelector);
+
+  await page.screenshot({path: `${SCREENSHOTS_DIR}/${id}/available_times.png`});
 
 }
 
 async function run() {
+  const rule = new RecurrenceRule();
+  rule.hour = 10;
+  rule.minute = new Range(0, 59);
+  rule.tz = 'Asia/Tokyo'; 
 
-  await createBooking("Tokyo", 4, null);
+  const job = schedule.scheduleJob(rule, async () => {
+    try {
+      const date = moment().format('YYYY-MM-DD');
+      const minutes = moment().format('mm');
+      await createBooking(`${date}_${minutes}`, "Tokyo", 3, null);
+      console.log("Date found");
+    } catch (error) {
+      console.error(error);
+    }
+  });
 }
 
 run();
