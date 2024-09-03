@@ -5,7 +5,7 @@ import { OPEN_HOUR } from "./constants";
 import { createBookingMethod2, createBookingPuppeteer } from "./method1";
 
 const browserOptions = {
-  headless: false,
+  headless: true,
   args: ["--no-sandbox", "--disable-setuid-sandbox"],
   defaultViewport: {
     width: 1920,
