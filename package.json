@@ -4,13 +4,16 @@
   "description": "A bot to book for a spot for Pokemon Cafe",
   "main": "index.ts",
   "scripts": {
-    "dev": "npx ts-node-dev --poll ./src/index.ts",
+    "dev": "nodemon src/index.ts",
     "build": "npx tsc",
     "start": "npm run build && node dist/index.js"
   },
   "author": "jaehyune",
   "license": "ISC",
   "dependencies": {
+    "@types/cheerio": "^0.22.35",
+    "axios": "^1.7.5",
+    "cheerio": "^1.0.0",
     "mocha": "10.7.0",
     "moment-timezone": "^0.5.45",
     "node-schedule": "^2.1.1",
