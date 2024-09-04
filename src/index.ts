@@ -15,7 +15,6 @@ const browserOptions = {
 };
 
 
-
 async function job(browser: Browser) {
   const date = moment().format('YYYY-MM-DD');
   const minutes = moment().format('mm');
@@ -24,12 +23,10 @@ async function job(browser: Browser) {
   console.log(`[${id}] Starting...`);
 
   try {
-
     await createBookingPuppeteer(browser, id, "Tokyo", 3, null);
   } catch (error) {
     console.log(`[${id}] ${error}`);
   }
-
 }
 
 
@@ -43,7 +40,7 @@ async function run() {
   rule1.minute = new Range(0, 30);
   rule1.tz = 'Asia/Tokyo';
 
-  console.log("New version with unique browser instance");
+  console.log("New version with unique browser instance and more screenshots");
 
   console.log(`Scheduling jobs for ${JSON.stringify(rule1)}`);
 
@@ -60,14 +57,7 @@ async function run() {
 
   const job2 = schedule.scheduleJob(rule2, async () => {
     job(browser);
-
   });
-
-
-
-
-
-
 }
 
 run();
