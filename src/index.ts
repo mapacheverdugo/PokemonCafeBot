@@ -35,12 +35,24 @@ async function run() {
 
   createBookingMethod2(browser, "test", "Tokyo", 3, null);
 
+  console.log("New version with unique browser instance and more screenshots");
+
+  const rule0 = new RecurrenceRule();
+  rule0.hour = OPEN_HOUR - 1;
+  rule0.minute = 59;
+  rule0.second = 59;
+  rule0.tz = 'Asia/Tokyo';
+
+  console.log(`Scheduling jobs for ${JSON.stringify(rule0)}`);
+
+  const job0 = schedule.scheduleJob(rule0, async () => {
+    job(browser);
+  });
+
   const rule1 = new RecurrenceRule();
   rule1.hour = OPEN_HOUR;
   rule1.minute = new Range(0, 30);
   rule1.tz = 'Asia/Tokyo';
-
-  console.log("New version with unique browser instance and more screenshots");
 
   console.log(`Scheduling jobs for ${JSON.stringify(rule1)}`);
 
