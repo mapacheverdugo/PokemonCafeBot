@@ -132,16 +132,10 @@ async function openBookingPage(id: string, city: string, browser: Browser, succe
 
         writeFileSync(filename, pageSourceHTML, { flag: 'w' });
 
-        const buttonText = 'リロードする（Reloading）'
+        const reloadButtonSel = 'body > div > div > div.column.is-8 > div > div > a.button.arrow-down'
 
-        await page.evaluate((buttonText) => {
-          const buttonEl = Array.from(document.querySelectorAll('button'))
-            .find(el => el.textContent === buttonText);
-
-          if (buttonEl) {
-            buttonEl.click();
-          }
-        }, buttonText);
+        await page.waitForSelector(reloadButtonSel, { timeout: 1000 });
+        await page.click(reloadButtonSel);
 
         await page.waitForNetworkIdle();
 
