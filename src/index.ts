@@ -2,7 +2,9 @@ import moment from "moment-timezone";
 import schedule, { Range, RecurrenceRule } from "node-schedule";
 import puppeteer, { Browser } from "puppeteer";
 import { OPEN_HOUR } from "./constants";
-import { createBookingMethod2, createBookingPuppeteer } from "./method1";
+import { createBookingPuppeteer } from "./method1";
+
+
 
 const browserOptions = {
   headless: true,
@@ -33,9 +35,9 @@ async function job(browser: Browser) {
 async function run() {
   const browser = await puppeteer.launch(browserOptions);
 
-  createBookingMethod2(browser, "test", "Tokyo", 3, null);
+  //job(browser);
 
-  console.log("New version with unique browser instance and more screenshots");
+  console.log("New version with new navigation and recording");
 
   const rule0 = new RecurrenceRule();
   rule0.hour = OPEN_HOUR - 1;

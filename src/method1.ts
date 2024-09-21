@@ -1,4 +1,3 @@
-import axios from "axios";
 import { writeFileSync } from "fs";
 import moment from "moment-timezone";
 import { Browser, Page } from "puppeteer";
@@ -103,20 +102,22 @@ async function selectDate(page: Page, dateToBook: string | undefined) {
   return selectedDate;
 }
 
-async function openBookingPage(id: string, city: string, browser: Browser, successSelector: string, retries: number = 10): Promise<Page> {
-  const url = getUrl(id, city);
+async function ensureNavigation(id: string, page: Page, successSelector: string, url: string | null, retries: number = 100): Promise<Page> {
+  const timeout = 100;
 
-  const page = await browser.newPage();
-  await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36");
-
-  await page.goto(url + "reserve/step1", { waitUntil: 'networkidle0' });
-  await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_just_opened.png` });
+  if (url == null) {
+    await page.waitForNetworkIdle();
+  } else {
+    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_just_opened.png` });
+  }
 
   let successSelectorFound = false;
   let currentTries = 0;
   while (!successSelectorFound && currentTries < retries) {
+    currentTries++;
     try {
-      await page.waitForSelector(successSelector, { timeout: 1000 });
+      await page.waitForSelector(successSelector, { timeout: timeout });
       successSelectorFound = true;
       break;
     } catch (error) {
@@ -134,21 +135,23 @@ async function openBookingPage(id: string, city: string, browser: Browser, succe
 
         const reloadButtonSel = 'body > div > div > div.column.is-8 > div > div > a.button.arrow-down'
 
-        await page.waitForSelector(reloadButtonSel, { timeout: 1000 });
+        await page.waitForSelector(reloadButtonSel, { timeout: timeout });
+        console.log(`[${id}] Clicking reload button after ${currentTries} tries`);
         await page.click(reloadButtonSel);
 
         await page.waitForNetworkIdle();
 
         await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_reload_after.png` });
-      } catch (error) {
 
+      } catch (error) {
+        console.log(`[${id}] Error while trying to reload page: ${error}`);
       }
 
 
       try {
         const formAgreeSelector = '#forms-agree';
 
-        await page.waitForSelector(formAgreeSelector, { timeout: 1000 });
+        await page.waitForSelector(formAgreeSelector, { timeout: timeout });
 
         const formAgreeCheckboxSelector = '#forms-agree > div > div.button-container > label';
         const formAgreeButtonSelector = '#forms-agree > div > div.button-container-agree > button';
@@ -161,30 +164,32 @@ async function openBookingPage(id: string, city: string, browser: Browser, succe
         await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_form_to_agree_step_2.png` });
 
         const continueButtonSelector = 'body > div > div > div.column.is-8 > div > div > a';
-        await page.waitForSelector(continueButtonSelector, { timeout: 1000 });
+        await page.waitForSelector(continueButtonSelector, { timeout: timeout });
         await page.click(continueButtonSelector);
 
         await page.waitForNetworkIdle();
 
         await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_form_to_agree_after.png` });
       } catch (error) {
-
+        console.log(`[${id}] Error while trying to agree form: ${error}`);
       }
 
-      currentTries++;
+
     }
 
   }
 
   if (successSelectorFound) {
-    console.log(`[${id}] Success selector found after ${currentTries} tries`);
+    console.log(`[${id}] Success selector "${successSelector}" found after ${currentTries} tries`);
   } else {
-    console.log(`[${id}] Success selector not found after ${currentTries} tries`);
+    console.log(`[${id}] Success selector "${successSelector}" not found after ${currentTries} tries`);
     await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_selector_not_found.png` });
   }
 
   return page;
 }
+
+
 
 function getUrl(id: string, city: string): string {
   if (city == "Tokyo") {
@@ -203,14 +208,19 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
 
   const selectNumGuestSelector = 'select[name=guest]';
 
-  const page = await openBookingPage(id, city, browser, selectNumGuestSelector);
+  const url = getUrl(id, city);
+
+  let page = await browser.newPage();
+  await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.75 Safari/537.36");
+  const recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_recording.webm` });
+
+  page = await ensureNavigation(id, page, selectNumGuestSelector, url);
 
   try {
-    await page.waitForSelector(selectNumGuestSelector, { timeout: defaultTimeout });
     await page.select(selectNumGuestSelector, numOfGuests.toString());
 
     const calendarSelector = 'input[name=date]';
-    await page.waitForSelector(calendarSelector, { timeout: defaultTimeout });
+    page = await ensureNavigation(id, page, calendarSelector, null);
 
     const selectedDate = await selectDate(page, dateToBook);
 
@@ -231,7 +241,7 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
     console.log(`[${id}] Date available: ${selectedDate.raw}`);
 
     const nextButtonSelector = '#submit_button';
-    await page.waitForSelector(nextButtonSelector, { timeout: defaultTimeout });
+    page = await ensureNavigation(id, page, nextButtonSelector, null);
 
     await page.click(nextButtonSelector);
 
@@ -240,31 +250,7 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
     console.log(`[${id}] ${error}`);
 
   } finally {
+    await recorder.stop();
     await page.close();
   }
 }
-
-export async function createBookingMethod2(browser: Browser, id: string, city: string, numOfGuests: number, dateToBook: string | undefined) {
-  const page = await openBookingPage(id, city, browser, 'select[name=guest]');
-
-  const tokenSelector = 'meta[name="csrf-token"]';
-
-  await page.waitForSelector(tokenSelector);
-
-  const token = await page.evaluate((selector) => {
-    const element = document.querySelector(selector);
-    return element.getAttribute('content');
-  }, tokenSelector);
-
-  const localStorage = await page.evaluate(() => Object.assign({}, window.localStorage));
-
-
-  await page.close();
-
-  const res = await axios.post("https://reserve.pokemon-cafe.jp/reserve/step1", {
-
-  });
-
-  //const $ = cheerio.load(data);
-}
-
