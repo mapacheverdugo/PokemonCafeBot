@@ -243,3 +243,6 @@ $RECYCLE.BIN/
 .pki/
 
 screenshots/
+
+credentials.json
+token.json

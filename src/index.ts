@@ -1,20 +1,25 @@
+
 import moment from "moment-timezone";
-import schedule, { Range, RecurrenceRule } from "node-schedule";
-import puppeteer, { Browser } from "puppeteer";
-import { OPEN_HOUR } from "./constants";
+import { Browser } from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import { authorize, getMessages } from "./gmail";
 import { createBookingPuppeteer } from "./method1";
 
+puppeteer.use(StealthPlugin());
 
 
 const browserOptions = {
-  headless: true,
+  headless: false,
   args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  ignoreDefaultArgs: ['--enable-automation'],
   defaultViewport: {
-    width: 1920,
-    height: 1080,
+    width: 1300,
+    height: 700,
   },
   timeout: 120000,
 };
+
 
 
 async function job(browser: Browser) {
@@ -25,7 +30,7 @@ async function job(browser: Browser) {
   console.log(`[${id}] Starting...`);
 
   try {
-    await createBookingPuppeteer(browser, id, "Tokyo", 3, null);
+    await createBookingPuppeteer(browser, id, "Osaka", 3, null);
   } catch (error) {
     console.log(`[${id}] ${error}`);
   }
@@ -33,45 +38,35 @@ async function job(browser: Browser) {
 
 
 async function run() {
-  const browser = await puppeteer.launch(browserOptions);
-
-  //job(browser);
+  //const browser = await puppeteer.launch(browserOptions);
 
   console.log("New version with new navigation and recording");
 
-  const rule0 = new RecurrenceRule();
-  rule0.hour = OPEN_HOUR - 1;
-  rule0.minute = 59;
-  rule0.second = 59;
-  rule0.tz = 'Asia/Tokyo';
+  const accessToken = await authorize();
 
-  console.log(`Scheduling jobs for ${JSON.stringify(rule0)}`);
+  const messages = await getMessages(accessToken);
+  console.log(messages);
 
-  const job0 = schedule.scheduleJob(rule0, async () => {
-    job(browser);
-  });
+  for (let message of messages) {
+    console.log(message);
+    console.log(message.payload.body.substr(message.payload.body.indexOf('■認証コード（Authentication code）'), 6));
+  }
 
-  const rule1 = new RecurrenceRule();
-  rule1.hour = OPEN_HOUR;
-  rule1.minute = new Range(0, 30);
-  rule1.tz = 'Asia/Tokyo';
+  //job(browser);
 
-  console.log(`Scheduling jobs for ${JSON.stringify(rule1)}`);
+  /*   const rule0 = new RecurrenceRule();
+    rule0.hour = OPEN_HOUR - 1;
+    rule0.minute = 59;
+    rule0.second = 59;
+    rule0.tz = 'Asia/Tokyo';
+  
+    console.log(`Scheduling jobs for ${JSON.stringify(rule0)}`);
+  
+    const job0 = schedule.scheduleJob(rule0, async () => {
+      job(browser);
+    }); */
 
-  const job1 = schedule.scheduleJob(rule1, async () => {
-    job(browser);
-  });
 
-  const rule2 = new RecurrenceRule();
-  rule2.hour = OPEN_HOUR - 1;
-  rule2.minute = new Range(55, 59);
-  rule2.tz = 'Asia/Tokyo';
-
-  console.log(`Scheduling jobs for  ${JSON.stringify(rule2)}`);
-
-  const job2 = schedule.scheduleJob(rule2, async () => {
-    job(browser);
-  });
 }
 
 run();
