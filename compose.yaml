@@ -4,6 +4,10 @@ services:
     build: .
     pull_policy: build
     container_name: pokemon-cafe-bot
+    ports:
+      - 3005:3005
+    environment:
+      - PORT=3005
     volumes:
       - ./data:/home/pptruser/screenshots # Montaje de volúmenes para persistir datos si es necesario
     restart: unless-stopped

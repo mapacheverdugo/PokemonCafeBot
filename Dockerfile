@@ -34,3 +34,5 @@ RUN npm install
 RUN npx tsc
 
 CMD [ "node", "dist/index.js" ]
+
+EXPOSE 3005
