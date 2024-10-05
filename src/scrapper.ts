@@ -127,6 +127,16 @@ async function getDatesStatusUpToXMonths(page: Page, xMonths: number): Promise<D
   return dates;
 }
 
+async function checkAvailability(page: Page, dates: string[]): Promise<DateState[]> {
+  let availableDates: DateState[] = [];
+
+  const dateStatuses = await getDatesStatusUpToXMonths(page, 3);
+  availableDates = dateStatuses.filter((date) => date.available);
+  availableDates = availableDates.filter((date) => dates.includes(date.date));
+
+  return availableDates;
+}
+
 async function selectDate(page: Page, dateToBook: string | undefined): Promise<DateState | null> {
   let dateFound: DateStateWithElement | undefined = null;
 
@@ -155,6 +165,7 @@ async function selectDate(page: Page, dateToBook: string | undefined): Promise<D
 
   return dateFound;
 }
+
 
 async function getTimesStatus(page: Page): Promise<TimeStateWithElement[]> {
 
@@ -204,7 +215,7 @@ async function getTimesStatus(page: Page): Promise<TimeStateWithElement[]> {
 
 async function selectTime(id: string, page: Page, timeToBook: string | undefined): Promise<TimeState | null> {
   const timeTableSelector = '#time_table';
-  page = await ensureNavigation(id, page, timeTableSelector, null);
+  page = await ensureNavigation(page, timeTableSelector, null);
 
   await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_available_times.png`, });
 
@@ -251,14 +262,20 @@ async function fillForm(page: Page) {
   await page.click(submitButtonSelector);
 }
 
-async function ensureNavigation(id: string, page: Page, successSelector: string, url: string | null, retries: number = 100): Promise<Page> {
+async function saveHtml(page: Page, filename: string) {
+  const pageSourceHTML = await page.content();
+  const path = `${SCREENSHOTS_DIR}/${filename}`;
+
+  writeFileSync(path, pageSourceHTML, { flag: 'w' });
+}
+
+async function ensureNavigation(page: Page, successSelector: string, url: string | null, retries: number = 100): Promise<Page> {
   const timeout = 100;
 
   if (url == null) {
     await page.waitForNetworkIdle();
   } else {
     await page.goto(url, { waitUntil: 'networkidle0' });
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_just_opened.png` });
   }
 
   let successSelectorFound = false;
@@ -274,26 +291,19 @@ async function ensureNavigation(id: string, page: Page, successSelector: string,
     }
 
     if (!successSelectorFound) {
-      await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_try_${currentTries}.png` });
 
       try {
-        const pageSourceHTML = await page.content();
-        const filename = `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_try_${currentTries}.html`;
-
-        writeFileSync(filename, pageSourceHTML, { flag: 'w' });
+        //await saveHtml(page, `${Date.now()}_searching_selector_try_${currentTries}.html`);
 
         const reloadButtonSel = 'body > div > div > div.column.is-8 > div > div > a.button.arrow-down'
 
         await page.waitForSelector(reloadButtonSel, { timeout: timeout });
-        console.log(`[${id}] Clicking reload button after ${currentTries} tries`);
         await page.click(reloadButtonSel);
 
         await page.waitForNetworkIdle();
 
-        await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_reload_after.png` });
-
       } catch (error) {
-        console.log(`[${id}] Error while trying to reload page: ${error}`);
+        //console.log(`Error while trying to reload page: ${error}`);
       }
 
 
@@ -310,17 +320,14 @@ async function ensureNavigation(id: string, page: Page, successSelector: string,
 
         await page.waitForNetworkIdle();
 
-        await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_form_to_agree_step_2.png` });
-
         const continueButtonSelector = 'body > div > div > div.column.is-8 > div > div > a';
         await page.waitForSelector(continueButtonSelector, { timeout: timeout });
         await page.click(continueButtonSelector);
 
         await page.waitForNetworkIdle();
 
-        await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_searching_selector_form_to_agree_after.png` });
       } catch (error) {
-        console.log(`[${id}] Error while trying to agree form: ${error}`);
+        //console.log(`Error while trying to agree form: ${error}`);
       }
 
 
@@ -329,10 +336,9 @@ async function ensureNavigation(id: string, page: Page, successSelector: string,
   }
 
   if (successSelectorFound) {
-    console.log(`[${id}] Success selector "${successSelector}" found after ${currentTries} tries`);
+    //console.log(`Success selector "${successSelector}" found after ${currentTries} tries`);
   } else {
-    console.log(`[${id}] Success selector "${successSelector}" not found after ${currentTries} tries`);
-    await page.screenshot({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_selector_not_found.png` });
+    //console.log(`Success selector "${successSelector}" not found after ${currentTries} tries`);
   }
 
   return page;
@@ -341,9 +347,9 @@ async function ensureNavigation(id: string, page: Page, successSelector: string,
 
 
 function getUrl(city: string): string {
-  if (city == "Tokyo") {
+  if (city.toLowerCase() == "tokyo") {
     return "https://reserve.pokemon-cafe.jp/"
-  } else if (city == "Osaka") {
+  } else if (city.toLowerCase() == "osaka") {
     return "https://osaka.pokemon-cafe.jp/"
   } else {
     throw new Error("City not supported");
@@ -364,13 +370,13 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
   await page.setUserAgent(userAgent.random().toString());
   const recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_recording.webm` });
 
-  page = await ensureNavigation(id, page, selectNumGuestSelector, url);
+  page = await ensureNavigation(page, selectNumGuestSelector, url);
 
   try {
     await page.select(selectNumGuestSelector, numOfGuests.toString());
 
     const calendarSelector = 'input[name=date]';
-    page = await ensureNavigation(id, page, calendarSelector, null);
+    page = await ensureNavigation(page, calendarSelector, null);
 
     const selectedDate = await selectDate(page, dateToBook);
 
@@ -388,9 +394,6 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
       throw new Error("Date not available");
     }
 
-
-
-
     const selectedTime = await selectTime(id, page, undefined);
 
     if (selectedTime == null) {
@@ -399,13 +402,46 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
 
     await fillForm(page);
 
-    await ensureNavigation(id, page, '#step4-form', null);
+    await ensureNavigation(page, '#step4-form', null);
 
   } catch (error) {
     console.log(`[${id}] ${error}`);
 
   } finally {
     await recorder.stop();
-    //await page.close();
+    await page.close();
+  }
+}
+
+export async function checkAvailabilityDates(browser: Browser, city: string, numOfGuests: number, dates: string[]): Promise<DateState[]> {
+  if (numOfGuests < 1) {
+    throw new Error("Number of guests must be at least 1");
+  }
+
+  const selectNumGuestSelector = 'select[name=guest]';
+
+  const url = getUrl(city);
+
+  let page = await browser.newPage();
+  const userAgent = new UserAgent();
+  await page.setUserAgent(userAgent.random().toString());
+
+  page = await ensureNavigation(page, selectNumGuestSelector, url);
+
+  try {
+    await page.select(selectNumGuestSelector, numOfGuests.toString());
+
+    const calendarSelector = 'input[name=date]';
+    page = await ensureNavigation(page, calendarSelector, null);
+
+    const dateStatuses = await checkAvailability(page, dates);
+
+    await page.close();
+    return dateStatuses;
+  } catch (error) {
+    console.log(`${error}`);
+
+    await page.close();
+    throw error;
   }
 }
