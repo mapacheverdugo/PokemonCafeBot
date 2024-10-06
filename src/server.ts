@@ -12,9 +12,9 @@ app.get('/', (req, res) => {
     });
 });
 
-app.post('/execute', async (req, res) => {
+app.post('/check', async (req, res) => {
     const dates: string[] = req.body.dates as string[];
-    const result = await checkAvailabilityDates(browser, req.body.city, req.body.guests, dates);
+    const result = await checkAvailabilityDates(browser, req.body.city, req.body.guests, dates, { record: req.body.record || process.env.RECORD == 'true', });
     res.json(result);
 });
 

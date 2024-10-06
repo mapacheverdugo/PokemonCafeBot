@@ -1,5 +1,5 @@
 import { writeFileSync } from 'fs';
-import { Browser, ElementHandle, Page } from "puppeteer";
+import { Browser, ElementHandle, Page, ScreenRecorder } from "puppeteer";
 import UserAgent from 'user-agents';
 import { SCREENSHOTS_DIR } from "./constants";
 
@@ -86,6 +86,15 @@ async function getDatesStatus(page: Page): Promise<DateStateWithElement[]> {
   const calendarDaySelector = '#step2-form li';
   const calendarDayElements = await page.$$(calendarDaySelector);
 
+  const currentMonthYearSelector = '#step2-form h3';
+  await page.waitForSelector(currentMonthYearSelector, { timeout: defaultTimeout });
+  const currentMonthYearElement = await page.$(currentMonthYearSelector);
+  const currentMonthYear = await page.evaluate((element) => element.textContent, currentMonthYearElement);
+
+  const currentMonthYearParts = currentMonthYear.split('年');
+  const currentYear = parseInt(currentMonthYearParts[0]);
+  const currentMonth = parseInt(currentMonthYearParts[1].replace('月', ''));
+
   for (let i = 0; i < calendarDayElements.length; i++) {
     const calendarDayElement = calendarDayElements[i];
     const date = await page.evaluate((element) => {
@@ -103,7 +112,7 @@ async function getDatesStatus(page: Page): Promise<DateStateWithElement[]> {
     const available = status != 'Full' && status != 'N/A';
 
     dates.push({
-      date,
+      date: `${currentYear}-${currentMonth}-${date}`,
       available,
       status,
       statusJapanese,
@@ -132,8 +141,9 @@ async function checkAvailability(page: Page, dates: string[]): Promise<DateState
 
   const dateStatuses = await getDatesStatusUpToXMonths(page, 3);
   availableDates = dateStatuses.filter((date) => date.available);
-  availableDates = availableDates.filter((date) => dates.includes(date.date));
-
+  if (dates != null && dates.length > 0) {
+    availableDates = availableDates.filter((date) => dates.includes(date.date));
+  }
   return availableDates;
 }
 
@@ -356,7 +366,7 @@ function getUrl(city: string): string {
   }
 }
 
-export async function createBookingPuppeteer(browser: Browser, id: string, city: string, numOfGuests: number, dateToBook: string | undefined) {
+export async function createBookingPuppeteer(browser: Browser, id: string, city: string, numOfGuests: number, dateToBook: string | undefined, options?: { record: boolean } | null) {
   if (numOfGuests < 1) {
     throw new Error("Number of guests must be at least 1");
   }
@@ -368,7 +378,12 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
   let page = await browser.newPage();
   const userAgent = new UserAgent();
   await page.setUserAgent(userAgent.random().toString());
-  const recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_recording.webm` });
+
+
+  let recorder: ScreenRecorder | null;
+  if (options?.record) {
+    recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_recording.webm` });
+  }
 
   page = await ensureNavigation(page, selectNumGuestSelector, url);
 
@@ -408,12 +423,14 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
     console.log(`[${id}] ${error}`);
 
   } finally {
-    await recorder.stop();
+    if (options?.record) {
+      await recorder.stop();
+    }
     await page.close();
   }
 }
 
-export async function checkAvailabilityDates(browser: Browser, city: string, numOfGuests: number, dates: string[]): Promise<DateState[]> {
+export async function checkAvailabilityDates(browser: Browser, city: string, numOfGuests: number, dates: string[], options?: { record: boolean }): Promise<DateState[]> {
   if (numOfGuests < 1) {
     throw new Error("Number of guests must be at least 1");
   }
@@ -425,6 +442,11 @@ export async function checkAvailabilityDates(browser: Browser, city: string, num
   let page = await browser.newPage();
   const userAgent = new UserAgent();
   await page.setUserAgent(userAgent.random().toString());
+
+  let recorder: ScreenRecorder | null;
+  if (options?.record) {
+    recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_recording.webm` });
+  }
 
   page = await ensureNavigation(page, selectNumGuestSelector, url);
 
@@ -440,6 +462,9 @@ export async function checkAvailabilityDates(browser: Browser, city: string, num
     return dateStatuses;
   } catch (error) {
     console.log(`${error}`);
+    if (options?.record) {
+      await recorder.stop();
+    }
 
     await page.close();
     throw error;

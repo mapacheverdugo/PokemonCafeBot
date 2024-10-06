@@ -37,7 +37,7 @@ async function job(browser: Browser) {
   console.log(`[${id}] Starting...`);
 
   try {
-    await createBookingPuppeteer(browser, id, "Osaka", 3, null);
+    await createBookingPuppeteer(browser, id, "Osaka", 3, null, { record: process.env.RECORD == 'true' });
   } catch (error) {
     console.log(`[${id}] ${error}`);
   }
