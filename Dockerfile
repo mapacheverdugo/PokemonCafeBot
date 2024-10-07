@@ -8,6 +8,7 @@ RUN apt update -qq \
     gnupg \
     libgconf-2-4 \
     libxss1 \
+    ffmpeg \
     libxtst6 \
     g++ \
     build-essential \
