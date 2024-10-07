@@ -430,7 +430,7 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
   }
 }
 
-export async function checkAvailabilityDates(browser: Browser, city: string, numOfGuests: number, dates: string[], options?: { record: boolean }): Promise<DateState[]> {
+export async function checkAvailabilityDates(browser: Browser, city: string, numOfGuests: number, dates: string[], options?: { record?: boolean }): Promise<DateState[]> {
   if (numOfGuests < 1) {
     throw new Error("Number of guests must be at least 1");
   }

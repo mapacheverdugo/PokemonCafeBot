@@ -1,9 +1,11 @@
 import express from 'express';
+import morgan from 'morgan';
 import { browser } from '.';
 import { checkAvailabilityDates } from './scrapper';
 
 export const app = express();
 
+app.use(morgan(process.env.ENVIRONMENT ?? 'dev'));
 app.use(express.json());
 
 app.get('/', (req, res) => {

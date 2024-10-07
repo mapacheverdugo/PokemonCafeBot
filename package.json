@@ -23,6 +23,7 @@
     "mailparser": "^3.7.1",
     "mocha": "10.7.0",
     "moment-timezone": "^0.5.45",
+    "morgan": "^1.10.0",
     "node-gmail-api": "^1.0.1",
     "node-schedule": "^2.1.1",
     "passport-google-oauth": "^2.0.0",
