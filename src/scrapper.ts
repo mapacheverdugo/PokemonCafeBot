@@ -283,7 +283,7 @@ async function ensureNavigation(page: Page, successSelector: string, url: string
   const timeout = 100;
 
   if (url == null) {
-    await page.waitForNetworkIdle();
+    await page.waitForNetworkIdle({ timeout: defaultTimeout });
   } else {
     await page.goto(url, { waitUntil: 'networkidle0' });
   }
@@ -310,7 +310,7 @@ async function ensureNavigation(page: Page, successSelector: string, url: string
         await page.waitForSelector(reloadButtonSel, { timeout: timeout });
         await page.click(reloadButtonSel);
 
-        await page.waitForNetworkIdle();
+        await page.waitForNetworkIdle({ timeout: defaultTimeout });
 
       } catch (error) {
         //console.log(`Error while trying to reload page: ${error}`);
@@ -328,13 +328,13 @@ async function ensureNavigation(page: Page, successSelector: string, url: string
         await page.click(formAgreeCheckboxSelector);
         await page.click(formAgreeButtonSelector);
 
-        await page.waitForNetworkIdle();
+        await page.waitForNetworkIdle({ timeout: defaultTimeout });
 
         const continueButtonSelector = 'body > div > div > div.column.is-8 > div > div > a';
         await page.waitForSelector(continueButtonSelector, { timeout: timeout });
         await page.click(continueButtonSelector);
 
-        await page.waitForNetworkIdle();
+        await page.waitForNetworkIdle({ timeout: defaultTimeout });
 
       } catch (error) {
         //console.log(`Error while trying to agree form: ${error}`);
