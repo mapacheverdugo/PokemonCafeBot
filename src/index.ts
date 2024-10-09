@@ -4,6 +4,8 @@ import schedule, { RecurrenceRule } from "node-schedule";
 import { Browser } from "puppeteer";
 import puppeteer from "puppeteer-extra";
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+
+import { createLogger, format, transports } from 'winston';
 import { OPEN_HOUR } from "./constants";
 import { authorize, getMessages } from "./gmail";
 import { createBookingPuppeteer } from "./scrapper";
@@ -25,6 +27,22 @@ const browserOptions = {
   },
   timeout: 120000,
 };
+
+
+export const logger = createLogger({
+  transports: [new transports.Console(
+    {
+      level: process.env.LOG_LEVEL || 'info',
+    }
+  )],
+  format: format.combine(
+    format.colorize(),
+    format.timestamp(),
+    format.printf(({ timestamp, level, message }) => {
+      return `[${timestamp}] ${level}: ${message}`;
+    })
+  ),
+});
 
 export let browser: Browser;
 
@@ -80,7 +98,7 @@ async function main() {
   browser = await puppeteer.launch(browserOptions);
 
   app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
+    logger.info(`Server is running at http://localhost:${port}`);
   });
 }
 

@@ -1,6 +1,7 @@
 import { writeFileSync } from 'fs';
-import { Browser, ElementHandle, Page, ScreenRecorder } from "puppeteer";
+import { Browser, ElementHandle, HTTPRequest, Page, ScreenRecorder } from "puppeteer";
 import UserAgent from 'user-agents';
+import { logger } from '.';
 import { SCREENSHOTS_DIR } from "./constants";
 
 const defaultTimeout = 60000;
@@ -243,7 +244,7 @@ async function selectTime(id: string, page: Page, timeToBook: string | undefined
     timeFound = times.find((time) => time.time == timeToBook && time.available);
   }
 
-  console.log('timeFound', timeFound);
+  logger.debug('timeFound', timeFound);
 
   if (timeFound) {
     await page.evaluate((element) => {
@@ -313,7 +314,7 @@ async function ensureNavigation(page: Page, successSelector: string, url: string
         await page.waitForNetworkIdle({ timeout: defaultTimeout });
 
       } catch (error) {
-        //console.log(`Error while trying to reload page: ${error}`);
+        logger.debug(`Error while trying to reload page: ${error}`);
       }
 
 
@@ -337,7 +338,7 @@ async function ensureNavigation(page: Page, successSelector: string, url: string
         await page.waitForNetworkIdle({ timeout: defaultTimeout });
 
       } catch (error) {
-        //console.log(`Error while trying to agree form: ${error}`);
+        logger.debug(`Error while trying to agree form: ${error}`);
       }
 
 
@@ -346,9 +347,9 @@ async function ensureNavigation(page: Page, successSelector: string, url: string
   }
 
   if (successSelectorFound) {
-    //console.log(`Success selector "${successSelector}" found after ${currentTries} tries`);
+    logger.debug(`Success selector "${successSelector}" found after ${currentTries} tries`);
   } else {
-    //console.log(`Success selector "${successSelector}" not found after ${currentTries} tries`);
+    logger.debug(`Success selector "${successSelector}" not found after ${currentTries} tries`);
   }
 
   return page;
@@ -367,6 +368,8 @@ function getUrl(city: string): string {
 }
 
 export async function createBookingPuppeteer(browser: Browser, id: string, city: string, numOfGuests: number, dateToBook: string | undefined, options?: { record: boolean } | null) {
+  const pendingRequests: HTTPRequest[] = [];
+
   if (numOfGuests < 1) {
     throw new Error("Number of guests must be at least 1");
   }
@@ -380,14 +383,32 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
   await page.setUserAgent(userAgent.random().toString());
 
 
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://www.google-analytics.com') ||
+      request.url().startsWith('https://www.googletagmanager.com') ||
+      request.url().startsWith('https://www.googleadservices.com') ||
+      request.url().startsWith('https://analytics.google.com') ||
+      request.resourceType() == 'font' ||
+      request.resourceType() == 'image'
+    ) {
+      request.abort();
+
+    } else {
+      pendingRequests.push(request);
+      request.continue();
+    }
+  });
+
+
   let recorder: ScreenRecorder | null;
   if (options?.record) {
     recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_${id}_recording.webm` });
   }
-
-  page = await ensureNavigation(page, selectNumGuestSelector, url);
-
   try {
+    page = await ensureNavigation(page, selectNumGuestSelector, url);
+
+
     await page.select(selectNumGuestSelector, numOfGuests.toString());
 
     const calendarSelector = 'input[name=date]';
@@ -420,7 +441,7 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
     await ensureNavigation(page, '#step4-form', null);
 
   } catch (error) {
-    console.log(`[${id}] ${error}`);
+    logger.debug(`[${id}] ${error}`);
 
   } finally {
     if (options?.record) {
@@ -431,6 +452,9 @@ export async function createBookingPuppeteer(browser: Browser, id: string, city:
 }
 
 export async function checkAvailabilityDates(browser: Browser, city: string, numOfGuests: number, dates: string[], options?: { record?: boolean }): Promise<DateState[]> {
+  const pendingRequests: HTTPRequest[] = [];
+
+
   if (numOfGuests < 1) {
     throw new Error("Number of guests must be at least 1");
   }
@@ -443,14 +467,40 @@ export async function checkAvailabilityDates(browser: Browser, city: string, num
   const userAgent = new UserAgent();
   await page.setUserAgent(userAgent.random().toString());
 
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://www.google-analytics.com') ||
+      request.url().startsWith('https://www.googletagmanager.com') ||
+      request.url().startsWith('https://www.googleadservices.com') ||
+      request.url().startsWith('https://analytics.google.com') ||
+      request.resourceType() == 'font' ||
+      request.resourceType() == 'image'
+    ) {
+      request.abort();
+
+    } else {
+      pendingRequests.push(request);
+      request.continue();
+    }
+  });
+
+  page.on('response', async (response) => {
+    const request = response.request();
+    const similarRequests = pendingRequests.filter((req) => req.url == request.url && req.resourceType == request.resourceType && req.method == request.method && req.postData == request.postData);
+    if (similarRequests.length > 1) {
+      const similarRequest = similarRequests[0];
+      pendingRequests.splice(pendingRequests.indexOf(similarRequest), 1);
+    }
+  })
+
   let recorder: ScreenRecorder | null;
   if (options?.record) {
     recorder = await page.screencast({ path: `${SCREENSHOTS_DIR}/${Date.now()}_recording.webm` });
   }
-
-  page = await ensureNavigation(page, selectNumGuestSelector, url);
-
   try {
+    page = await ensureNavigation(page, selectNumGuestSelector, url);
+
+
     await page.select(selectNumGuestSelector, numOfGuests.toString());
 
     const calendarSelector = 'input[name=date]';
@@ -461,12 +511,21 @@ export async function checkAvailabilityDates(browser: Browser, city: string, num
     await page.close();
     return dateStatuses;
   } catch (error) {
-    console.log(`${error}`);
+    logger.error(error);
     if (options?.record) {
       await recorder.stop();
     }
 
     await page.close();
     throw error;
+  } finally {
+    if (pendingRequests.length > 0) {
+      logger.debug('Pending requests:');
+      for (let request of pendingRequests) {
+        logger.debug(`${request.resourceType()} ${request.url()}`);
+      }
+    } else {
+      logger.debug('No pending requests');
+    }
   }
 }
